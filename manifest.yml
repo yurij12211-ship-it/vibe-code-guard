@@ -1,0 +1,98 @@
+modules:
+  jira:issuePanel:
+    - key: vibe-code-guard-panel
+      resource: main
+      resolver:
+        function: resolver
+      render: native
+      title: Vibe-Code Guard
+      icon: https://raw.githubusercontent.com/yurij12211-ship-it/vibe-code-guard/main/assets/icon.png
+  rovo:agent:
+    - key: vibe-code-guard-agent
+      name: Vibe-Code Security Guard
+      description: Reviews apps built with AI coding tools (Lovable, Bolt, Replit, Cursor) for the security holes they usually ship with, and turns findings into Jira work items.
+      prompt: |
+        You are Vibe-Code Guard, a security reviewer for web apps generated with AI coding tools such as Lovable, Bolt, Replit and Cursor.
+        These apps usually use Supabase and Stripe and fail in predictable ways: secret keys committed to the repo, the Supabase service_role key in browser code,
+        tables without Row Level Security, RLS policies that use (true), Stripe webhooks that never verify the signature, committed .env files and admin checks done only in the browser.
+
+        When the user gives a GitHub repository, call the scan-repository action with its URL. Present the result as:
+        1. A one-line verdict with the security score.
+        2. The Critical and High findings, each with the file and line, why it matters in plain language, and the concrete fix.
+        3. Medium findings only as a short list.
+        Do not invent findings that the action did not return. If the scan fails, explain the error and how to fix it (for example: the repo must be public).
+
+        If the user asks to track the problems, ask which Jira project key to use if you do not know it, then call create-security-issues.
+        Never claim the app is fully secure: the scan covers known vibe-coding mistakes, not every vulnerability.
+      conversationStarters:
+        - Scan my Lovable app's GitHub repo for security holes
+        - Is my Supabase setup leaking data?
+        - Create Jira work items for the critical findings
+      actions:
+        - scan-repository
+        - create-security-issues
+  rovo:mcp:
+    - key: vibe-code-guard-mcp
+      name: Vibe-Code Guard
+      tools:
+        - scan-repository
+        - create-security-issues
+  action:
+    - key: scan-repository
+      name: Scan repository
+      function: scanRepository
+      actionVerb: GET
+      description: Scan a public GitHub repository of an AI-built app for common security mistakes (secrets, Supabase RLS, Stripe webhooks) and return a scored report.
+      inputs:
+        repoUrl:
+          title: Repository URL
+          type: string
+          required: true
+          description: Public GitHub repository URL, for example https://github.com/owner/repo
+    - key: create-security-issues
+      name: Create security work items
+      function: createSecurityIssues
+      actionVerb: CREATE
+      description: Scan a public GitHub repository and create one Jira work item per finding in the given project, skipping findings that are already tracked.
+      inputs:
+        repoUrl:
+          title: Repository URL
+          type: string
+          required: true
+          description: Public GitHub repository URL
+        projectKey:
+          title: Jira project key
+          type: string
+          required: true
+          description: Key of the Jira project where work items are created, for example SEC
+        minSeverity:
+          title: Minimum severity
+          type: string
+          required: false
+          description: Critical, High or Medium. Defaults to High.
+  function:
+    - key: resolver
+      handler: index.handler
+    - key: scanRepository
+      handler: index.scanRepositoryAction
+      timeoutSeconds: 120
+    - key: createSecurityIssues
+      handler: index.createSecurityIssuesAction
+      timeoutSeconds: 180
+resources:
+  - key: main
+    path: src/frontend/index.jsx
+permissions:
+  scopes:
+    - read:jira-work
+    - write:jira-work
+    - storage:app
+  external:
+    fetch:
+      backend:
+        - api.github.com
+        - raw.githubusercontent.com
+app:
+  runtime:
+    name: nodejs22.x
+  id: ari:cloud:ecosystem::app/00000000-0000-0000-0000-000000000000

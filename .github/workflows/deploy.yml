@@ -1,0 +1,48 @@
+name: Deploy to Forge
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      FORGE_EMAIL: ${{ secrets.FORGE_EMAIL }}
+      FORGE_API_TOKEN: ${{ secrets.FORGE_API_TOKEN }}
+      FORGE_DISABLE_ANALYTICS: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install -g @forge/cli@latest
+      - run: npm ci || npm install
+      - run: npm test
+
+      - name: Register app on first run
+        if: ${{ hashFiles('manifest.yml') != '' }}
+        run: |
+          if grep -q '00000000-0000-0000-0000-000000000000' manifest.yml; then
+            forge register vibe-code-guard --accept-terms --non-interactive
+            git config user.name "github-actions"
+            git config user.email "github-actions@users.noreply.github.com"
+            git add manifest.yml
+            git commit -m "Register Forge app id [skip ci]"
+            git push
+          fi
+
+      - run: forge lint
+      - run: forge deploy --environment development --non-interactive
+
+      - name: Install or upgrade on the dev site
+        env:
+          FORGE_SITE: ${{ secrets.FORGE_SITE }}
+        run: |
+          if [ -z "$FORGE_SITE" ]; then echo "FORGE_SITE secret not set, skipping install"; exit 0; fi
+          forge install --site "$FORGE_SITE" --product jira --environment development --non-interactive --upgrade \
+            || forge install --site "$FORGE_SITE" --product jira --environment development --non-interactive
