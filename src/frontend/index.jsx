@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import ForgeReconciler, {
-  Box, Button, ButtonGroup, DynamicTable, Heading, Inline, Lozenge, SectionMessage, Spinner, Stack, Text, Textfield, Link,
+  Button, ButtonGroup, DynamicTable, Inline, Lozenge, SectionMessage, Spinner, Stack, Text, Textfield, Link,
 } from '@forge/react';
 import { invoke } from '@forge/bridge';
 
@@ -65,9 +65,7 @@ const App = () => {
     <Stack space="space.200">
       <Text>Scan an app built with Lovable, Bolt, Replit or Cursor for the security holes AI builders leave behind.</Text>
       <Inline space="space.100" alignBlock="end">
-        <Box xcss={{ flexGrow: 1 }}>
-          <Textfield placeholder="https://github.com/owner/repo" value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)} />
-        </Box>
+        <Textfield name="repoUrl" placeholder="https://github.com/owner/repo" value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)} />
         <Button appearance="primary" onClick={scan} isDisabled={busy || !repoUrl}>Scan</Button>
       </Inline>
       {busy && <Spinner label="Scanning" />}
@@ -94,7 +92,6 @@ const App = () => {
 
 ForgeReconciler.render(
   <React.StrictMode>
-    <Heading size="small">Vibe-Code Guard</Heading>
     <App />
   </React.StrictMode>,
 );
