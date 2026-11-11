@@ -74,7 +74,7 @@ const App = () => {
     <Stack space="space.200">
       <Text>Scan an app built with Lovable, Bolt, Replit or Cursor for the security holes AI builders leave behind.</Text>
       <Inline space="space.100" alignBlock="end">
-        <Textfield name="repoUrl" placeholder="https://github.com/owner/repo" value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)} />
+        <Textfield name="repoUrl" placeholder="https://github.com/owner/repo" defaultValue={repoUrl} onChange={(e) => setRepoUrl(typeof e === 'string' ? e : (e && e.target ? e.target.value : ''))} />
         <Button appearance="primary" onClick={scan} isDisabled={busy || !repoUrl}>Scan</Button>
       </Inline>
       {busy && <Spinner label="Scanning" />}
