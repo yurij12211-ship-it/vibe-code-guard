@@ -28,7 +28,11 @@ jobs:
         if: ${{ hashFiles('manifest.yml') != '' }}
         run: |
           if grep -q '00000000-0000-0000-0000-000000000000' manifest.yml; then
-            forge register vibe-code-guard --personal --accept-terms --non-interactive
+            forge developer-spaces list --json > spaces.json
+            cat spaces.json | head -c 400; echo
+            SPACE_ID=$(node -e "const d=JSON.parse(require('fs').readFileSync('spaces.json','utf8'));const a=Array.isArray(d)?d:(d.developerSpaces||d.spaces||d.items||Object.values(d)[0]);console.log(a[0].id||a[0].developerSpaceId)")
+            rm spaces.json
+            forge register vibe-code-guard --developer-space-id "$SPACE_ID" --accept-terms --non-interactive
             git config user.name "github-actions"
             git config user.email "github-actions@users.noreply.github.com"
             git add manifest.yml
