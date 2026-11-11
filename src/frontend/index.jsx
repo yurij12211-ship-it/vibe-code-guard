@@ -38,6 +38,8 @@ function Findings({ findings, repo }) {
   );
 }
 
+const Probe = () => <Text>Vibe-Code Guard is loading…</Text>;
+
 const App = () => {
   const [repoUrl, setRepoUrl] = useState('');
   const [result, setResult] = useState(null);
@@ -92,6 +94,7 @@ const App = () => {
 
 ForgeReconciler.render(
   <React.StrictMode>
+    <Probe />
     <App />
   </React.StrictMode>,
 );
