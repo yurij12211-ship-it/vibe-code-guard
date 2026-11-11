@@ -38,7 +38,14 @@ function Findings({ findings, repo }) {
   );
 }
 
-const Probe = () => <Text>Vibe-Code Guard is loading…</Text>;
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  render() {
+    if (this.state.error) return <Text>{`UI error: ${this.state.error && (this.state.error.stack || this.state.error.message || String(this.state.error))}`.slice(0, 900)}</Text>;
+    return this.props.children;
+  }
+}
 
 const App = () => {
   const [repoUrl, setRepoUrl] = useState('');
@@ -94,6 +101,8 @@ const App = () => {
 
 ForgeReconciler.render(
   <React.StrictMode>
-    <Probe />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </React.StrictMode>,
 );
