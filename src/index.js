@@ -23,20 +23,28 @@ resolver.define('getLastScan', async ({ context }) => {
 });
 
 resolver.define('scan', async ({ payload, context }) => {
-  const issueKey = context.extension.issue.key;
-  const result = await runScan(payload.repoUrl);
-  await kvs.set(storageKey(issueKey), result);
-  return result;
+  try {
+    const issueKey = context.extension.issue.key;
+    const result = await runScan(payload.repoUrl);
+    await kvs.set(storageKey(issueKey), result);
+    return result;
+  } catch (e) {
+    return { error: e.message };
+  }
 });
 
 resolver.define('createIssues', async ({ payload, context }) => {
   const issueKey = context.extension.issue.key;
   const projectKey = context.extension.project.key;
-  const last = await kvs.get(storageKey(issueKey));
-  if (!last) throw new Error('Run a scan first.');
-  const severities = payload.severities || ['Critical', 'High'];
-  const findings = last.findings.filter((f) => severities.includes(f.severity));
-  return createIssuesForFindings({ projectKey, findings, repo: last.repo, parentIssueKey: issueKey });
+  try {
+    const last = await kvs.get(storageKey(issueKey));
+    if (!last) return { error: 'Run a scan first.' };
+    const severities = payload.severities || ['Critical', 'High'];
+    const findings = last.findings.filter((f) => severities.includes(f.severity));
+    return await createIssuesForFindings({ projectKey, findings, repo: last.repo, parentIssueKey: issueKey });
+  } catch (e) {
+    return { error: e.message };
+  }
 });
 
 export const handler = resolver.getDefinitions();

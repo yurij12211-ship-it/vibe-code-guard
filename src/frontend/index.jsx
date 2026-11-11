@@ -55,18 +55,18 @@ const App = () => {
   const [created, setCreated] = useState(null);
 
   useEffect(() => {
-    invoke('getLastScan').then((r) => { if (r) { setResult(r); setRepoUrl(r.repo.htmlUrl); } });
+    invoke('getLastScan').then((r) => { if (r && Array.isArray(r.findings) && r.repo) { setResult(r); setRepoUrl(r.repo.htmlUrl); } }).catch(() => {});
   }, []);
 
   const scan = async () => {
     setBusy(true); setError(null); setCreated(null);
-    try { setResult(await invoke('scan', { repoUrl })); } catch (e) { setError(e.message); }
+    try { const r = await invoke('scan', { repoUrl }); if (r && r.error) setError(r.error); else setResult(r); } catch (e) { setError(e.message); }
     setBusy(false);
   };
 
   const fileIssues = async () => {
     setBusy(true); setError(null);
-    try { setCreated(await invoke('createIssues', { severities: ['Critical', 'High'] })); } catch (e) { setError(e.message); }
+    try { const r = await invoke('createIssues', { severities: ['Critical', 'High'] }); if (r && r.error) setError(r.error); else setCreated(r); } catch (e) { setError(e.message); }
     setBusy(false);
   };
 
@@ -79,7 +79,7 @@ const App = () => {
       </Inline>
       {busy && <Spinner label="Scanning" />}
       {error && <SectionMessage appearance="error"><Text>{error}</Text></SectionMessage>}
-      {result && (
+      {result && Array.isArray(result.findings) && (
         <Stack space="space.150">
           <Summary result={result} />
           <Findings findings={result.findings} repo={result.repo} />
