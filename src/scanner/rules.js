@@ -157,7 +157,7 @@ const rules = [
     check(path, text) {
       if (!isCode(path) || !isClientPath(path)) return [];
       const out = [];
-      const re = /(isAdmin|role\s*===?\s*['"]admin['"]|user\.email\s*===?\s*['"][^'"]+@[^'"]+['"])/g;
+      const re = /(isAdmin|role\s*===?\s*['"]admin['"]|user\??\.email\s*===?\s*['"][^'"]+@[^'"]+['"])/g;
       let m;
       while ((m = re.exec(text))) {
         out.push({ line: lineOf(text, m.index), detail: 'Access decision made in client code; it can be bypassed by calling the API directly.' });
