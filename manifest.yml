@@ -10,7 +10,9 @@ modules:
   rovo:agent:
     - key: vibe-code-guard-agent
       name: Vibe-Code Security Guard
-      description: Reviews apps built with AI coding tools (Lovable, Bolt, Replit, Cursor) for the security holes they usually ship with, and turns findings into Jira work items.
+      description: Reviews apps built with AI coding tools (Lovable, Bolt, Replit,
+        Cursor) for the security holes they usually ship with, and turns
+        findings into Jira work items.
       prompt: |
         You are Vibe-Code Guard, a security reviewer for web apps generated with AI coding tools such as Lovable, Bolt, Replit and Cursor.
         These apps usually use Supabase and Stripe and fail in predictable ways: secret keys committed to the repo, the Supabase service_role key in browser code,
@@ -42,18 +44,23 @@ modules:
       name: Scan repository
       function: scanRepository
       actionVerb: GET
-      description: Scan a public GitHub repository of an AI-built app for common security mistakes (secrets, Supabase RLS, Stripe webhooks) and return a scored report.
+      description: Scan a public GitHub repository of an AI-built app for common
+        security mistakes (secrets, Supabase RLS, Stripe webhooks) and return a
+        scored report.
       inputs:
         repoUrl:
           title: Repository URL
           type: string
           required: true
-          description: Public GitHub repository URL, for example https://github.com/owner/repo
+          description: Public GitHub repository URL, for example
+            https://github.com/owner/repo
     - key: create-security-issues
       name: Create security work items
       function: createSecurityIssues
       actionVerb: CREATE
-      description: Scan a public GitHub repository and create one Jira work item per finding in the given project, skipping findings that are already tracked.
+      description: Scan a public GitHub repository and create one Jira work item per
+        finding in the given project, skipping findings that are already
+        tracked.
       inputs:
         repoUrl:
           title: Repository URL
@@ -95,4 +102,4 @@ permissions:
 app:
   runtime:
     name: nodejs22.x
-  id: ari:cloud:ecosystem::app/00000000-0000-0000-0000-000000000000
+  id: ari:cloud:ecosystem::app/126d6328-b11a-4b84-8398-c3e29455c52b
