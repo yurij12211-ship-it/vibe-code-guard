@@ -13,6 +13,8 @@ const vulnerable = [
   { path: 'supabase/functions/stripe-webhook/index.ts', content: `import Stripe from "stripe";\nconst event = await req.json();\nif (event.type === "checkout.session.completed") { await markPaid(); }\n` },
   { path: 'server/pay.js', content: `const stripe = require('stripe')('sk_live_${'a'.repeat(24)}');\n` },
   { path: '.env', content: 'SUPABASE_URL=https://x.supabase.co\nOPENAI_API_KEY=abc\n' },
+  { path: 'firestore.rules', content: 'service cloud.firestore {\n match /{doc=**} {\n  allow read, write: if true;\n }\n}\n' },
+  { path: 'supabase/migrations/002_storage.sql', content: "insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true);\n" },
 ];
 
 const safe = [
@@ -25,7 +27,7 @@ const safe = [
 test('finds every planted issue', () => {
   const f = scanFiles(vulnerable);
   const ids = new Set(f.map((x) => x.ruleId));
-  for (const id of ['VCG001', 'VCG002', 'VCG003', 'VCG004', 'VCG005', 'VCG006', 'VCG007']) {
+  for (const id of ['VCG001', 'VCG002', 'VCG003', 'VCG004', 'VCG005', 'VCG006', 'VCG007', 'VCG008', 'VCG009']) {
     assert.ok(ids.has(id), `missing ${id}`);
   }
   assert.strictEqual(f[0].severity, 'Critical');
@@ -44,4 +46,5 @@ test('file filter', () => {
   assert.ok(wantFile('.env', 10));
   assert.ok(!wantFile('node_modules/x/a.js', 10));
   assert.ok(!wantFile('src/logo.png', 10));
+  assert.ok(wantFile('firestore.rules', 10));
 });

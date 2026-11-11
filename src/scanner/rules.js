@@ -167,6 +167,40 @@ const rules = [
     },
     fix: 'Enforce the same rule on the server: an RLS policy that checks a roles table, or a backend check before the privileged operation.',
   },
+  {
+    id: 'VCG008',
+    title: 'Firebase / Firestore rules open to everyone',
+    severity: SEVERITY.CRITICAL,
+    check(path, text) {
+      if (!/(firestore|storage|database)\.rules$|(^|\/)(firestore|database)\.rules\.json$/i.test(path)) return [];
+      const out = [];
+      const re = /allow\s+(read|write|read\s*,\s*write)\s*:\s*if\s+true|"\.(read|write)"\s*:\s*true/gi;
+      let m;
+      while ((m = re.exec(text))) {
+        out.push({ line: lineOf(text, m.index), detail: 'Security rule grants access to anyone, signed in or not.' });
+      }
+      return out;
+    },
+    fix: 'Require authentication and ownership, e.g. `allow read, write: if request.auth != null && request.auth.uid == resource.data.ownerId;`.',
+  },
+  {
+    id: 'VCG009',
+    title: 'Public Supabase storage bucket for user files',
+    severity: SEVERITY.MEDIUM,
+    check(path, text) {
+      if (!isSqlMigration(path)) return [];
+      const out = [];
+      const re = /insert\s+into\s+storage\.buckets[\s\S]*?values\s*\(([^)]*)\)/gi;
+      let m;
+      while ((m = re.exec(text))) {
+        if (/\btrue\b/i.test(m[1]) && /(avatar|upload|document|private|invoice|user|file)/i.test(m[1])) {
+          out.push({ line: lineOf(text, m.index), detail: 'Bucket is created with public = true; anyone with the URL can download every file in it.' });
+        }
+      }
+      return out;
+    },
+    fix: 'Make the bucket private and serve files through signed URLs (`createSignedUrl`) with storage policies scoped to `auth.uid()`.',
+  },
 ];
 
 module.exports = { rules, SEVERITY, decodeJwtRole };

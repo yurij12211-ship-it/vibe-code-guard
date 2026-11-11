@@ -21,6 +21,8 @@ AI builders produce working apps in minutes, but the same mistakes repeat: secre
 | VCG005 | High | Stripe webhook handler without `stripe.webhooks.constructEvent` |
 | VCG006 | High | `.env` file committed |
 | VCG007 | Medium | Admin or role checks done only in browser code |
+| VCG008 | Critical | Firebase / Firestore rules with `if true` or `".read": true` |
+| VCG009 | Medium | Public Supabase storage bucket for user files |
 
 The rules are deterministic: the same repository always gets the same report, and every finding points to a file and line. The agent explains and prioritises; it never invents findings.
 

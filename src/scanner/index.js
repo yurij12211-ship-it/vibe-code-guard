@@ -6,7 +6,7 @@ const MAX_FILE_BYTES = 200 * 1024;
 function wantFile(path, size) {
   if (SKIP_DIRS.test(path)) return false;
   if (size && size > MAX_FILE_BYTES) return false;
-  return /\.(js|jsx|ts|tsx|mjs|cjs|vue|svelte|sql|toml|json|ya?ml)$/i.test(path) ||
+  return /\.(js|jsx|ts|tsx|mjs|cjs|vue|svelte|sql|toml|json|ya?ml|rules)$/i.test(path) ||
     /(^|\/)\.env(\.[a-z]+)?$/i.test(path);
 }
 
