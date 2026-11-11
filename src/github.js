@@ -1,7 +1,7 @@
 import api from '@forge/api';
 import { wantFile } from './scanner';
 
-const MAX_FILES = 150;
+const MAX_FILES = 80;
 
 export function parseRepoUrl(input) {
   const s = String(input || '').trim().replace(/\.git$/, '').replace(/\/$/, '');
@@ -30,7 +30,7 @@ export async function fetchRepoFiles(repoUrl) {
     .slice(0, MAX_FILES);
 
   const files = [];
-  const batchSize = 10;
+  const batchSize = 20;
   for (let i = 0; i < candidates.length; i += batchSize) {
     const batch = candidates.slice(i, i + batchSize);
     const results = await Promise.all(batch.map(async (n) => {

@@ -82,10 +82,8 @@ modules:
       handler: index.handler
     - key: scanRepository
       handler: index.scanRepositoryAction
-      timeoutSeconds: 120
     - key: createSecurityIssues
       handler: index.createSecurityIssuesAction
-      timeoutSeconds: 180
 resources:
   - key: main
     path: src/frontend/index.jsx
@@ -97,8 +95,8 @@ permissions:
   external:
     fetch:
       backend:
-        - api.github.com
-        - raw.githubusercontent.com
+        - address: api.github.com
+        - address: raw.githubusercontent.com
 app:
   runtime:
     name: nodejs22.x

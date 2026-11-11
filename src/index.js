@@ -45,7 +45,7 @@ export const handler = resolver.getDefinitions();
 function formatReport(result, limit = 15) {
   const { repo, summary, findings } = result;
   const lines = [
-    `Repository: ${repo.owner}/${repo.repo} (branch ${repo.branch}), ${repo.scannedFiles} files scanned${repo.truncated ? ' (large repo: riskiest 150 files)' : ''}.`,
+    `Repository: ${repo.owner}/${repo.repo} (branch ${repo.branch}), ${repo.scannedFiles} files scanned${repo.truncated ? ' (large repo: riskiest 80 files)' : ''}.`,
     `Security score: ${summary.score}/100. Critical: ${summary.counts.Critical}, High: ${summary.counts.High}, Medium: ${summary.counts.Medium}.`,
   ];
   findings.slice(0, limit).forEach((f, i) => {
