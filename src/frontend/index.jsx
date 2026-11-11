@@ -90,7 +90,7 @@ const App = () => {
           )}
           {created && (
             <SectionMessage appearance="success">
-              <Text>Created {created.created.length}: {created.created.join(', ') || '—'}{created.skipped.length ? `. Already tracked: ${created.skipped.join(', ')}` : ''}</Text>
+              <Text>{created.created.length ? `Created ${created.created.length} work item(s): ${created.created.join(', ')}.` : 'No new work items needed.'}{created.skipped.length ? ` Already tracked: ${created.skipped.join(', ')}.` : ''}</Text>
             </SectionMessage>
           )}
         </Stack>
