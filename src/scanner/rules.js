@@ -13,6 +13,16 @@ function isClientPath(path) {
     !/(^|\/)(supabase\/functions|api\/|server\/|functions\/|netlify\/|\.github\/)/.test(path);
 }
 
+function isTestOrDoc(path) {
+  return /(\.test\.|\.spec\.|__tests__\/|(^|\/)tests?\/|(^|\/)docs?\/|fixtures?\/|\.stories\.|(^|\/)examples?\/)/i.test(path) &&
+    !/vulnerable-lovable-shop/.test(path);
+}
+
+function stripSqlComments(text) {
+  // keep line structure so line numbers stay correct
+  return text.replace(/--[^\n]*/g, (m) => ' '.repeat(m.length)).replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '));
+}
+
 function isSqlMigration(path) {
   return /\.sql$/i.test(path);
 }
@@ -47,7 +57,7 @@ const rules = [
     title: 'Hard-coded secret key in the repository',
     severity: SEVERITY.CRITICAL,
     check(path, text) {
-      if (/\.(md|lock)$/i.test(path) || /\.example$|\.sample$/i.test(path)) return [];
+      if (/\.(md|lock)$/i.test(path) || /\.example$|\.sample$/i.test(path) || isTestOrDoc(path)) return [];
       const out = [];
       for (const p of SECRET_PATTERNS) {
         p.re.lastIndex = 0;
@@ -73,7 +83,7 @@ const rules = [
           out.push({ line: lineOf(text, m.index), detail: 'A JWT with role "service_role" is committed. It bypasses every RLS policy.' });
         }
       }
-      if (isCode(path) && isClientPath(path)) {
+      if (isCode(path) && isClientPath(path) && !isTestOrDoc(path) && !/\.server\.|(^|\/)server\/|\.d\.ts$|(^|\/)types?\.ts$/i.test(path)) {
         const envRe = /(VITE_|NEXT_PUBLIC_|REACT_APP_|EXPO_PUBLIC_)?SUPABASE_SERVICE_ROLE(_KEY)?/g;
         while ((m = envRe.exec(text))) {
           out.push({ line: lineOf(text, m.index), detail: 'Service role key referenced from browser code.' });
@@ -87,16 +97,20 @@ const rules = [
     id: 'VCG003',
     title: 'Table created without Row Level Security',
     severity: SEVERITY.HIGH,
-    check(path, text) {
+    check(path, text, ctx) {
       if (!isSqlMigration(path)) return [];
+      text = stripSqlComments(text);
       const out = [];
-      const createRe = /create\s+table\s+(?:if\s+not\s+exists\s+)?((?:"?[\w]+"?\.)?"?([\w]+)"?)/gi;
+      const createRe = /create\s+table\s+(?:if\s+not\s+exists\s+)?(?:"?(\w+)"?\.)?"?(\w+)"?\s*\(/gi;
       let m;
       while ((m = createRe.exec(text))) {
+        const schema = (m[1] || 'public').toLowerCase();
         const table = m[2];
-        const rlsRe = new RegExp(`alter\\s+table\\s+(?:only\\s+)?(?:"?\\w+"?\\.)?"?${table}"?\\s+enable\\s+row\\s+level\\s+security`, 'i');
-        if (!rlsRe.test(text)) {
-          out.push({ line: lineOf(text, m.index), detail: `Table "${table}" has no "enable row level security" in this migration. With the public anon key anyone can read and write it.` });
+        if (schema !== 'public') continue; // only tables exposed through the Supabase API
+        const rlsHere = new RegExp(`alter\\s+table\\s+(?:if\\s+exists\\s+)?(?:only\\s+)?(?:"?\\w+"?\\.)?"?${table}"?\\s+enable\\s+row\\s+level\\s+security`, 'i').test(text);
+        const rlsElsewhere = ctx && ctx.rlsTables && ctx.rlsTables.has(table.toLowerCase());
+        if (!rlsHere && !rlsElsewhere) {
+          out.push({ line: lineOf(text, m.index), detail: `Table "${table}" is created without "enable row level security" in any migration. With the public anon key anyone can read and write it.` });
         }
       }
       return out;
@@ -107,17 +121,24 @@ const rules = [
     id: 'VCG004',
     title: 'RLS policy that allows everyone',
     severity: SEVERITY.HIGH,
-    check(path, text) {
+    check(path, text, ctx) {
       if (!isSqlMigration(path)) return [];
+      text = stripSqlComments(text);
       const out = [];
       const polRe = /create\s+policy[\s\S]*?;/gi;
       let m;
       while ((m = polRe.exec(text))) {
         const stmt = m[0];
         const permissive = /(using|with\s+check)\s*\(\s*true\s*\)/i.test(stmt);
-        const readOnlyPublic = /for\s+select/i.test(stmt) && /to\s+anon/i.test(stmt) === false && /using\s*\(\s*true\s*\)/i.test(stmt);
-        if (permissive && !readOnlyPublic) {
-          out.push({ line: lineOf(text, m.index), detail: 'Policy uses `(true)` for a write or all operations, so RLS is enabled but protects nothing.' });
+        const readOnly = /for\s+select/i.test(stmt);
+        const serviceRoleOnly = /\bto\s+service_role\b/i.test(stmt);
+        const nm = stmt.match(/create\s+policy\s+"([^"]+)"\s+on\s+(?:"?\w+"?\.)?"?(\w+)"?/i);
+        const droppedLater = nm && ctx && ctx.droppedLater && ctx.droppedLater(path, nm[1], nm[2]);
+        if (permissive && !readOnly && !serviceRoleOnly && !droppedLater) {
+          const insertOnly = /for\s+insert/i.test(stmt);
+          out.push(insertOnly
+            ? { line: lineOf(text, m.index), severity: SEVERITY.MEDIUM, detail: 'INSERT policy uses `(true)`: anyone can add rows. Fine for a public contact form, risky for anything else.' }
+            : { line: lineOf(text, m.index), detail: 'Policy uses `(true)` for update/delete/all operations, so RLS is enabled but protects nothing.' });
         }
       }
       return out;
@@ -129,7 +150,7 @@ const rules = [
     title: 'Stripe webhook handler without signature verification',
     severity: SEVERITY.HIGH,
     check(path, text) {
-      if (!isCode(path)) return [];
+      if (!isCode(path) || isTestOrDoc(path)) return [];
       const looksLikeWebhook = /webhook/i.test(path) || /checkout\.session\.completed|customer\.subscription\.|invoice\.paid|payment_intent\.succeeded/.test(text);
       if (!looksLikeWebhook || !/stripe/i.test(text)) return [];
       if (/constructEvent(Async)?\s*\(/.test(text)) return [];
@@ -144,9 +165,12 @@ const rules = [
     severity: SEVERITY.HIGH,
     check(path, text) {
       if (!/(^|\/)\.env(\.(local|production|prod|development))?$/i.test(path)) return [];
-      const keys = (text.match(/^[A-Z0-9_]+=.+$/gm) || []).length;
-      if (!keys) return [];
-      return [{ line: 1, detail: `${keys} variable(s) committed in ${path}.` }];
+      // Lovable/Vite .env files hold the public anon key by design; only secrets matter here.
+      const secretLines = (text.match(/^[A-Z0-9_]*(SECRET|SERVICE_ROLE|PRIVATE|PASSWORD|API_KEY|TOKEN)[A-Z0-9_]*\s*=\s*['"]?[^\s'"#]{8,}/gm) || [])
+        .filter((l) => !/^(VITE_|NEXT_PUBLIC_|REACT_APP_|EXPO_PUBLIC_)[A-Z0-9_]*(PUBLISHABLE|ANON)/.test(l));
+      if (!secretLines.length) return [];
+      const names = secretLines.map((l) => l.split('=')[0].trim());
+      return [{ line: 1, detail: `${names.length} secret variable(s) committed in ${path}: ${names.slice(0, 4).join(', ')}.` }];
     },
     fix: 'Delete the file from the repo, add `.env*` to .gitignore, and rotate every secret it contained; git history keeps old values.',
   },
@@ -177,7 +201,10 @@ const rules = [
       const re = /allow\s+(read|write|read\s*,\s*write)\s*:\s*if\s+true|"\.(read|write)"\s*:\s*true/gi;
       let m;
       while ((m = re.exec(text))) {
-        out.push({ line: lineOf(text, m.index), detail: 'Security rule grants access to anyone, signed in or not.' });
+        const readOnly = /^allow\s+read\s*:|^"\.read"/i.test(m[0]);
+        out.push(readOnly
+          ? { line: lineOf(text, m.index), severity: SEVERITY.MEDIUM, detail: 'Anyone can read this data. Fine for public content, a leak for anything personal.' }
+          : { line: lineOf(text, m.index), detail: 'Security rule lets anyone write, signed in or not.' });
       }
       return out;
     },
@@ -203,4 +230,26 @@ const rules = [
   },
 ];
 
-module.exports = { rules, SEVERITY, decodeJwtRole };
+function buildContext(files) {
+  const rlsTables = new Set();
+  for (const { path, content } of files) {
+    if (!isSqlMigration(path)) continue;
+    const re = /alter\s+table\s+(?:if\s+exists\s+)?(?:only\s+)?(?:"?\w+"?\.)?"?(\w+)"?\s+enable\s+row\s+level\s+security/gi;
+    let m;
+    while ((m = re.exec(stripSqlComments(content)))) rlsTables.add(m[1].toLowerCase());
+  }
+  // policies dropped in a later migration (migration files sort by timestamp prefix)
+  const drops = [];
+  for (const { path, content } of files) {
+    if (!isSqlMigration(path)) continue;
+    const re = /drop\s+policy\s+(?:if\s+exists\s+)?"([^"]+)"\s+on\s+(?:"?\w+"?\.)?"?(\w+)"?/gi;
+    let m;
+    const clean = stripSqlComments(content);
+    while ((m = re.exec(clean))) drops.push({ path, name: m[1].toLowerCase(), table: m[2].toLowerCase(), index: m.index });
+  }
+  const base = (p) => p.split('/').pop();
+  const droppedLater = (path, name, table) => drops.some((d) => d.name === name.toLowerCase() && d.table === table.toLowerCase() && base(d.path) > base(path));
+  return { rlsTables, droppedLater };
+}
+
+module.exports = { rules, SEVERITY, decodeJwtRole, buildContext };

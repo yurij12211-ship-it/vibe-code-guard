@@ -1,4 +1,4 @@
-const { rules } = require('./rules');
+const { rules, buildContext } = require('./rules');
 
 const SKIP_DIRS = /(^|\/)(node_modules|dist|build|\.next|\.git|coverage|vendor)\//;
 const MAX_FILE_BYTES = 200 * 1024;
@@ -12,13 +12,14 @@ function wantFile(path, size) {
 
 function scanFiles(files) {
   const findings = [];
+  const ctx = buildContext(files);
   for (const { path, content } of files) {
     for (const rule of rules) {
-      for (const hit of rule.check(path, content)) {
+      for (const hit of rule.check(path, content, ctx)) {
         findings.push({
           ruleId: rule.id,
           title: rule.title,
-          severity: rule.severity,
+          severity: hit.severity || rule.severity,
           path,
           line: hit.line,
           detail: hit.detail,

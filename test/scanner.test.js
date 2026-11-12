@@ -12,7 +12,7 @@ const vulnerable = [
   { path: 'src/pages/Admin.tsx', content: `if (user.email === "boss@shop.com") { showAdmin() }\n` },
   { path: 'supabase/functions/stripe-webhook/index.ts', content: `import Stripe from "stripe";\nconst event = await req.json();\nif (event.type === "checkout.session.completed") { await markPaid(); }\n` },
   { path: 'server/pay.js', content: `const stripe = require('stripe')('sk_live_${'a'.repeat(24)}');\n` },
-  { path: '.env', content: 'SUPABASE_URL=https://x.supabase.co\nOPENAI_API_KEY=abc\n' },
+  { path: '.env', content: 'SUPABASE_URL=https://x.supabase.co\nOPENAI_API_KEY=sk-test-1234567890abcdef\n' },
   { path: 'firestore.rules', content: 'service cloud.firestore {\n match /{doc=**} {\n  allow read, write: if true;\n }\n}\n' },
   { path: 'supabase/migrations/002_storage.sql', content: "insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true);\n" },
 ];
@@ -47,4 +47,13 @@ test('file filter', () => {
   assert.ok(!wantFile('node_modules/x/a.js', 10));
   assert.ok(!wantFile('src/logo.png', 10));
   assert.ok(wantFile('firestore.rules', 10));
+});
+
+test('Lovable .env with only public anon key and test files are not flagged', () => {
+  const f = scanFiles([
+    { path: '.env', content: 'VITE_SUPABASE_URL="https://x.supabase.co"\nVITE_SUPABASE_PUBLISHABLE_KEY="eyJhbGciOiJIUzI1NiJ9.abc.def"\nVITE_SUPABASE_PROJECT_ID="xyz"\n' },
+    { path: 'src/lib/integrations/credentials.test.ts', content: 'const k = process.env.SUPABASE_SERVICE_ROLE_KEY;\n' },
+    { path: 'supabase/migrations/1.sql', content: '-- create table for later\ncreate table public.notes (id int);\nalter table public.notes enable row level security;\n' },
+  ]);
+  assert.deepEqual(f.map((x) => x.ruleId), []);
 });
