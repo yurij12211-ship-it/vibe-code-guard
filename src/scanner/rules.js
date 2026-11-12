@@ -108,7 +108,7 @@ const rules = [
         const table = m[2];
         if (schema !== 'public') continue; // only tables exposed through the Supabase API
         const rlsHere = new RegExp(`alter\\s+table\\s+(?:if\\s+exists\\s+)?(?:only\\s+)?(?:"?\\w+"?\\.)?"?${table}"?\\s+enable\\s+row\\s+level\\s+security`, 'i').test(text);
-        const rlsElsewhere = ctx && ctx.rlsTables && ctx.rlsTables.has(table.toLowerCase());
+        const rlsElsewhere = ctx && ctx.rlsTables && (ctx.rlsTables.dynamic || ctx.rlsTables.has(table.toLowerCase()));
         if (!rlsHere && !rlsElsewhere) {
           out.push({ line: lineOf(text, m.index), detail: `Table "${table}" is created without "enable row level security" in any migration. With the public anon key anyone can read and write it.` });
         }
@@ -132,8 +132,8 @@ const rules = [
         const permissive = /(using|with\s+check)\s*\(\s*true\s*\)/i.test(stmt);
         const readOnly = /for\s+select/i.test(stmt);
         const serviceRoleOnly = /\bto\s+service_role\b/i.test(stmt);
-        const nm = stmt.match(/create\s+policy\s+"([^"]+)"\s+on\s+(?:"?\w+"?\.)?"?(\w+)"?/i);
-        const droppedLater = nm && ctx && ctx.droppedLater && ctx.droppedLater(path, nm[1], nm[2]);
+        const nm = stmt.match(/create\s+policy\s+(?:"([^"]+)"|(\w+))\s+on\s+(?:"?\w+"?\.)?"?(\w+)"?/i);
+        const droppedLater = nm && ctx && ctx.droppedLater && ctx.droppedLater(path, nm[1] || nm[2], nm[3]);
         if (permissive && !readOnly && !serviceRoleOnly && !droppedLater) {
           const insertOnly = /for\s+insert/i.test(stmt);
           out.push(insertOnly
@@ -237,15 +237,17 @@ function buildContext(files) {
     const re = /alter\s+table\s+(?:if\s+exists\s+)?(?:only\s+)?(?:"?\w+"?\.)?"?(\w+)"?\s+enable\s+row\s+level\s+security/gi;
     let m;
     while ((m = re.exec(stripSqlComments(content)))) rlsTables.add(m[1].toLowerCase());
+    // RLS enabled dynamically in a loop: execute format('alter table public.%I enable row level security', t)
+    if (/%I\s+enable\s+row\s+level\s+security/i.test(stripSqlComments(content))) rlsTables.dynamic = true;
   }
   // policies dropped in a later migration (migration files sort by timestamp prefix)
   const drops = [];
   for (const { path, content } of files) {
     if (!isSqlMigration(path)) continue;
-    const re = /drop\s+policy\s+(?:if\s+exists\s+)?"([^"]+)"\s+on\s+(?:"?\w+"?\.)?"?(\w+)"?/gi;
+    const re = /drop\s+policy\s+(?:if\s+exists\s+)?(?:"([^"]+)"|(\w+))\s+on\s+(?:"?\w+"?\.)?"?(\w+)"?/gi;
     let m;
     const clean = stripSqlComments(content);
-    while ((m = re.exec(clean))) drops.push({ path, name: m[1].toLowerCase(), table: m[2].toLowerCase(), index: m.index });
+    while ((m = re.exec(clean))) drops.push({ path, name: (m[1] || m[2]).toLowerCase(), table: m[3].toLowerCase(), index: m.index });
   }
   const base = (p) => p.split('/').pop();
   const droppedLater = (path, name, table) => drops.some((d) => d.name === name.toLowerCase() && d.table === table.toLowerCase() && base(d.path) > base(path));
