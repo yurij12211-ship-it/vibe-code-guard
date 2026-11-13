@@ -84,7 +84,8 @@ const rules = [
         }
       }
       if (isCode(path) && isClientPath(path) && !isTestOrDoc(path) && !/\.server\.|(^|\/)server\/|\.d\.ts$|(^|\/)types?\.ts$/i.test(path)) {
-        const envRe = /(VITE_|NEXT_PUBLIC_|REACT_APP_|EXPO_PUBLIC_)?SUPABASE_SERVICE_ROLE(_KEY)?/g;
+        // only real reads of the env var (or a public-prefixed name), not mentions in comments, docs or regexes
+        const envRe = /(?:import\.meta\.env|process\.env)\.\w*SUPABASE_SERVICE_ROLE\w*|\b(?:VITE_|NEXT_PUBLIC_|REACT_APP_|EXPO_PUBLIC_)\w*SERVICE_ROLE\w*/g;
         while ((m = envRe.exec(text))) {
           out.push({ line: lineOf(text, m.index), detail: 'Service role key referenced from browser code.' });
         }
@@ -250,7 +251,9 @@ function buildContext(files) {
     while ((m = re.exec(clean))) drops.push({ path, name: (m[1] || m[2]).toLowerCase(), table: m[3].toLowerCase(), index: m.index });
   }
   const base = (p) => p.split('/').pop();
-  const droppedLater = (path, name, table) => drops.some((d) => d.name === name.toLowerCase() && d.table === table.toLowerCase() && base(d.path) > base(path));
+  // policies dropped dynamically in a loop: execute format('drop policy if exists %I on public.%I', ...)
+  const dynamicDrops = files.filter(({ path, content }) => isSqlMigration(path) && /drop\s+policy\s+(if\s+exists\s+)?%I/i.test(content)).map((f) => base(f.path));
+  const droppedLater = (path, name, table) => dynamicDrops.some((d) => d > base(path)) || drops.some((d) => d.name === name.toLowerCase() && d.table === table.toLowerCase() && base(d.path) > base(path));
   return { rlsTables, droppedLater };
 }
 
