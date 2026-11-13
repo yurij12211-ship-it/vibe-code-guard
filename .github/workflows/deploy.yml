@@ -42,6 +42,8 @@ jobs:
 
       - run: forge lint
       - run: forge deploy --environment development --non-interactive
+      - name: Deploy to production (needed for the installation link)
+        run: forge deploy --environment production --non-interactive
 
       - name: Install or upgrade on the dev site
         env:
