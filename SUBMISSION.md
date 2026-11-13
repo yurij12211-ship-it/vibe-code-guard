@@ -1,5 +1,7 @@
 # Codegeist 2026 submission draft: Vibe-Code Guard
 
+**Video:** https://youtu.be/jumL6d8pv1s
+
 **Category:** Apps for Software Teams
 **Bonus prizes:** Best Rovo/Assignable agents (rovo:agent + actions), Best app with Atlassian MCP (rovo:mcp exposes the same tools)
 **Repo:** https://github.com/yurij12211-ship-it/vibe-code-guard
