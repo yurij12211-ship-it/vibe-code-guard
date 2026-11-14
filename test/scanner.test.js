@@ -57,3 +57,10 @@ test('Lovable .env with only public anon key and test files are not flagged', ()
   ]);
   assert.deepEqual(f.map((x) => x.ruleId), []);
 });
+
+test('VCG002 ignores Node scripts that read the service role key', () => {
+  const f = scanFiles([{ path: 'src/lib/mail/diagnostic.ts', content: "const k = process.env.SUPABASE_SERVICE_ROLE_KEY;\nif (!k) process.exit(1);\n" }]);
+  assert.ok(!f.some((x) => x.ruleId === 'VCG002'));
+  const g = scanFiles([{ path: 'src/lib/client.ts', content: "const k = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;\n" }]);
+  assert.ok(g.some((x) => x.ruleId === 'VCG002'));
+});

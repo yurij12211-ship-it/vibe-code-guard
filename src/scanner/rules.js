@@ -83,7 +83,7 @@ const rules = [
           out.push({ line: lineOf(text, m.index), detail: 'A JWT with role "service_role" is committed. It bypasses every RLS policy.' });
         }
       }
-      if (isCode(path) && isClientPath(path) && !isTestOrDoc(path) && !/\.server\.|(^|\/)server\/|\.d\.ts$|(^|\/)types?\.ts$/i.test(path)) {
+      if (isCode(path) && isClientPath(path) && !isTestOrDoc(path) && !/\.server\.|(^|\/)server\/|\.d\.ts$|(^|\/)types?\.ts$/i.test(path) && !/process\.exit\(|^#!|['"]use server['"]|require\(['"]dotenv|from ['"]dotenv/m.test(text)) {
         // only real reads of the env var (or a public-prefixed name), not mentions in comments, docs or regexes
         const envRe = /(?:import\.meta\.env|process\.env)\.\w*SUPABASE_SERVICE_ROLE\w*|\b(?:VITE_|NEXT_PUBLIC_|REACT_APP_|EXPO_PUBLIC_)\w*SERVICE_ROLE\w*/g;
         while ((m = envRe.exec(text))) {
