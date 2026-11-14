@@ -154,7 +154,8 @@ const rules = [
       if (!isCode(path) || isTestOrDoc(path)) return [];
       const looksLikeWebhook = /webhook/i.test(path) || /checkout\.session\.completed|customer\.subscription\.|invoice\.paid|payment_intent\.succeeded/.test(text);
       if (!looksLikeWebhook || !/stripe/i.test(text)) return [];
-      if (/constructEvent(Async)?\s*\(/.test(text)) return [];
+      // direct call or a project helper that wraps it (verifyWebhook, verifyStripeSignature, ...)
+      if (/constructEvent(Async)?\s*\(|verify\w*(Webhook|Signature)\w*\s*\(/.test(text)) return [];
       const idx = text.search(/checkout\.session\.completed|customer\.subscription\.|invoice\.paid|payment_intent\.succeeded|webhook/i);
       return [{ line: lineOf(text, Math.max(idx, 0)), detail: 'Handles Stripe events but never calls stripe.webhooks.constructEvent(), so anyone can POST a fake "payment succeeded" event.' }];
     },
@@ -167,8 +168,11 @@ const rules = [
     check(path, text) {
       if (!/(^|\/)\.env(\.(local|production|prod|development))?$/i.test(path)) return [];
       // Lovable/Vite .env files hold the public anon key by design; only secrets matter here.
-      const secretLines = (text.match(/^[A-Z0-9_]*(SECRET|SERVICE_ROLE|PRIVATE|PASSWORD|API_KEY|TOKEN)[A-Z0-9_]*\s*=\s*['"]?[^\s'"#]{8,}/gm) || [])
-        .filter((l) => !/^(VITE_|NEXT_PUBLIC_|REACT_APP_|EXPO_PUBLIC_)[A-Z0-9_]*(PUBLISHABLE|ANON)/.test(l));
+      // [ \t]* (not \s*) so an empty value never swallows the next line
+      const secretLines = (text.match(/^[A-Z0-9_]*(SECRET|SERVICE_ROLE|PRIVATE|PASSWORD|API_KEY|TOKEN)[A-Z0-9_]*[ \t]*=[ \t]*['"]?[^\s'"#]{8,}/gm) || [])
+        .filter((l) => !/^(VITE_|NEXT_PUBLIC_|REACT_APP_|EXPO_PUBLIC_)[A-Z0-9_]*(PUBLISHABLE|ANON|PUBLIC)/.test(l))
+        // publishable keys and obvious placeholders are not secrets
+        .filter((l) => !/=[ \t]*['"]?(pk_(test|live)_|pk\.|your[-_]|<|changeme|xxx|replace)/i.test(l));
       if (!secretLines.length) return [];
       const names = secretLines.map((l) => l.split('=')[0].trim());
       return [{ line: 1, detail: `${names.length} secret variable(s) committed in ${path}: ${names.slice(0, 4).join(', ')}.` }];
